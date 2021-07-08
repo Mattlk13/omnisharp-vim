@@ -1,5 +1,6 @@
 {
     "FormattingOptions": {
+        "EnableEditorConfigSupport": false,
         "NewLine": "\n",
         "UseTabs": false,
         "TabSize": 4,
@@ -52,7 +53,8 @@
         "NewLineForMembersInAnonymousTypes": true,
         "NewLineForClausesInQuery": true
     },
-    "MsBuild": {
-        "UseLegacySdkResolver": true
+    "RoslynExtensionsOptions": {
+        "EnableAnalyzersSupport": false,
+        "EnableDecompilationSupport": false
     }
 }

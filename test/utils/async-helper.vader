@@ -3,17 +3,24 @@ After():
 
 Execute (set up async helper):
   function! s:Callback(...)
-    let g:OmniSharpTest_waiting = 0
+    let g:OmniSharp_test_waiting = 0
   endfunction
 
-  function! OmniSharpTestAwait(funcname, args) abort
-    let g:OmniSharpTest_waiting = 1
+  function! OmniSharpWarmup(funcname, args) abort
+    call OmniSharpTestAwait(a:funcname, a:args, 1)
+  endfunction
+
+  function! OmniSharpTestAwait(funcname, args, warmup = 0) abort
+    let g:OmniSharp_test_waiting = 1
     call function(a:funcname, a:args + [function('s:Callback')])()
     let starttime = reltime()
-    while g:OmniSharpTest_waiting && reltime(starttime)[0] < g:OmniSharp_timeout
+    while g:OmniSharp_test_waiting
+    \ && reltime(starttime)[0] < g:OmniSharp_test_timeout
       sleep 50m
     endwhile
-    Assert !g:OmniSharpTest_waiting, a:funcname . 'timed out'
+    if !a:warmup
+      Assert !g:OmniSharp_test_waiting, a:funcname . ' timed out'
+    endif
   endfunction
 
   function! OmniSharpTestInitializeBuffer(filename) abort
@@ -23,7 +30,7 @@ Execute (set up async helper):
     if has_key(b:, 'OmniSharp_UpdateChangeTick')
       unlet b:OmniSharp_UpdateChangeTick
     endif
-    call OmniSharpTestAwait('OmniSharp#UpdateBuffer', [])
+    call OmniSharpTestAwait('OmniSharp#actions#buffer#Update', [])
   endfunction
 
   function! OmniSharpTestCleanupBuffer() abort

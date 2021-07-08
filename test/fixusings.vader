@@ -9,8 +9,9 @@ Given cs():
   }
 
 Execute (run fix usings):
-  call OmniSharpTestInitializeBuffer('FixUsings')
-  call OmniSharpTestAwait('OmniSharp#FixUsings', [])
+  call OmniSharpTestInitializeBuffer('FixUsings1')
+  call OmniSharpWarmup('OmniSharp#actions#usings#Fix', [])
+  call OmniSharpTestAwait('OmniSharp#actions#usings#Fix', [])
 
 Expect cs(should remove unused using):
   public class Test
@@ -29,9 +30,11 @@ Given cs():
   }
 
 Execute (run fix usings):
-  call OmniSharpTestAwait('OmniSharp#FixUsings', [])
+  call OmniSharpTestInitializeBuffer('FixUsings2')
+  call OmniSharpWarmup('OmniSharp#actions#usings#Fix', [])
+  call OmniSharpTestAwait('OmniSharp#actions#usings#Fix', [])
 
-Expect cs(should remove unused using):
+Expect cs(should add required using):
   using System;
 
   public class Test
@@ -59,7 +62,9 @@ Given cs():
   }
 
 Execute (run fix usings):
-  call OmniSharpTestAwait('OmniSharp#FixUsings', [])
+  call OmniSharpTestInitializeBuffer('FixUsings3')
+  call OmniSharpWarmup('OmniSharp#actions#usings#Fix', [])
+  call OmniSharpTestAwait('OmniSharp#actions#usings#Fix', [])
 
 Expect cs(should not add ambiguous using):
   public class test {
@@ -76,7 +81,33 @@ Expect cs(should not add ambiguous using):
       public class class1{}
   }
 
+Execute (should return ambiguous usings to Callback):
+  call OmniSharpTestInitializeBuffer('FixUsings4')
+  call OmniSharpWarmup('OmniSharp#actions#usings#Fix', [])
+  let g:OmniSharp_test_locations = []
+  function! s:Callback(locations)
+    let g:OmniSharp_test_waiting = 0
+    let g:OmniSharp_test_locations = a:locations
+  endfunction
+  let g:OmniSharp_test_waiting = 1
+  call function('OmniSharp#actions#usings#Fix', [function('s:Callback')])()
+  let starttime = reltime()
+  while g:OmniSharp_test_waiting
+  \ && reltime(starttime)[0] < g:OmniSharp_test_timeout
+    sleep 50m
+  endwhile
+  AssertEqual len(getqflist()), 0
+  Assert !g:OmniSharp_test_waiting, 'OmniSharp#actions#usings#Fix timed out'
+  AssertEqual len(g:OmniSharp_test_locations), 2
+  AssertEqual g:OmniSharp_test_locations[0].lnum, 2
+
 Execute (should add ambiguous usings to quickfix):
-  call OmniSharpTestAwait('OmniSharp#FixUsings', [])
+  call OmniSharpTestInitializeBuffer('FixUsings5')
+  call OmniSharpWarmup('OmniSharp#actions#usings#Fix', [])
+  " Cannot use OmniSharpTestAwait, as the callback prevents the default quickfix
+  " behaviour
+  call OmniSharp#actions#usings#Fix()
+  sleep 5
+  AssertEqual len(getqflist()), 2
   cfirst
-  AssertEqual 2, line(".")
+  AssertEqual line('.'), 2

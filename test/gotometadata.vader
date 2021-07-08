@@ -10,9 +10,12 @@ Given cs():
   }
 
 Execute (go to metadata preview):
-  call OmniSharpTestInitializeBuffer('GotoMetadata')
+  call OmniSharpTestInitializeBuffer('GotoMetadata1')
   call search("MemoryStream stream")
-  call OmniSharpTestAwait('OmniSharp#PreviewDefinition', [])
+  " Cannot use OmniSharpTestAwait, as the callback prevents the default preview
+  " behaviour
+  call OmniSharp#actions#definition#Preview()
+  sleep 5
   wincmd p
   AssertEqual 'MemoryStream.cs', expand('%:t')
   pclose
@@ -26,7 +29,10 @@ Given cs():
   }
 
 Execute (go to metadata window):
-  call OmniSharpTestInitializeBuffer('GotoMetadata')
+  call OmniSharpTestInitializeBuffer('GotoMetadata2')
   call search("MemoryStream stream")
-  call OmniSharpTestAwait('OmniSharp#GotoDefinition', [])
+  " Cannot use OmniSharpTestAwait, as the callback prevents the default
+  " navigation behaviour
+  call OmniSharp#actions#definition#Find()
+  sleep 5
   AssertEqual 'MemoryStream.cs', expand('%:t')

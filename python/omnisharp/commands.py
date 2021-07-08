@@ -17,10 +17,10 @@ logger = logging.getLogger('omnisharp')
 ctx = VimUtilCtx(vim)
 
 
-def openFile(filename, line=0, column=0, noautocmd=0):
+def openFile(filename, line=0, column=0, editcommand='edit'):
     vim.command("let l:loc = {{ 'filename': '{0}', 'lnum': {1}, 'col': {2} }}"
                 .format(filename, line, column))
-    vim.command("call OmniSharp#JumpToLocation(l:loc, {0})".format(noautocmd))
+    vim.command("call OmniSharp#locations#Navigate(l:loc, {0})".format(editcommand))
 
 
 def setBuffer(text):
@@ -66,6 +66,9 @@ def getCompletions(partialWord):
     want_snippet = \
         bool(int(vim.eval('g:OmniSharp_want_snippet')))
 
+    without_overloads = \
+        bool(int(vim.eval('g:OmniSharp_completion_without_overloads')))
+
     parameters['WantSnippet'] = want_snippet
     parameters['WantMethodHeader'] = True
     parameters['WantReturnType'] = True
@@ -78,6 +81,9 @@ def getCompletions(partialWord):
             if want_snippet:
                 word = cmp['MethodHeader'] or cmp['CompletionText']
                 menu = cmp['ReturnType'] or cmp['DisplayText']
+            elif without_overloads:
+                word = cmp['CompletionText']
+                menu = ''
             else:
                 word = cmp['CompletionText'] or cmp['MethodHeader']
                 menu = cmp['DisplayText'] or cmp['MethodHeader']
@@ -90,7 +96,7 @@ def getCompletions(partialWord):
                 'info': ((cmp['Description'] or ' ')
                          .replace('\r\n', '\n')),
                 'icase': 1,
-                'dup': 1
+                'dup': 0 if without_overloads else 1
             })
     return vim_completions
 
@@ -124,13 +130,13 @@ def runCodeAction(mode, action):
         vim.command('let l:hidden_bak = &hidden | set hidden')
         for changeDefinition in changes:
             filename = formatPathForClient(ctx, changeDefinition['FileName'])
-            openFile(filename, noautocmd=1)
+            openFile(filename, editcommand='silent')
             if not setBuffer(changeDefinition.get('Buffer')):
                 for change in changeDefinition.get('Changes', []):
                     setBuffer(change.get('NewText'))
             if vim.current.buffer.number != bufnum:
                 vim.command('silent write | silent edit')
-        openFile(bufname, pos[0], pos[1], 1)
+        openFile(bufname, pos[0], pos[1], 'silent')
         vim.command('let &hidden = l:hidden_bak | unlet l:hidden_bak')
         return True
     return False
@@ -178,8 +184,8 @@ def typeLookup(include_documentation):
     }
     response = getResponse(ctx, '/typelookup', parameters, json=True)
     return {
-        'type': response.get('Type', '') or '',
-        'doc': response.get('Documentation', '') or '',
+        'Type': response.get('Type', '') or '',
+        'Documentation': response.get('Documentation', '') or ''
     }
 
 
@@ -194,7 +200,7 @@ def renameTo(name):
     for change in changes:
         ret.append({
             'FileName': formatPathForClient(ctx, change['FileName']),
-            'Buffer': change['Buffer'],
+            'Buffer': change['Buffer']
         })
     return ret
 
@@ -208,16 +214,17 @@ def codeFormat():
 
 
 @vimcmd
-def fix_usings():
+def fixUsings():
     response = getResponse(ctx, '/fixusings', json=True)
     setBuffer(response.get("Buffer"))
     return quickfixes_from_response(ctx, response['AmbiguousResults'])
 
 
 @vimcmd
-def findSymbols(filter=''):
+def findSymbols(filter='', symbolfilter=''):
     parameters = {}
     parameters["filter"] = filter
+    parameters["symbolfilter"] = symbolfilter
     response = getResponse(ctx, '/findsymbols', parameters, json=True)
     return quickfixes_from_response(ctx, response['QuickFixes'])
 
@@ -259,17 +266,25 @@ def findHighlightTypes():
 
 @vimcmd
 def navigateUp():
-    get_navigate_response('/navigateup')
+    return get_navigate_response('/navigateup')
 
 
 @vimcmd
 def navigateDown():
-    get_navigate_response('/navigatedown')
+    return get_navigate_response('/navigatedown')
 
 
 def get_navigate_response(endpoint):
     response = getResponse(ctx, endpoint, json=True)
-    vim.current.window.cursor = (response['Line'], response['Column'] - 1)
+    if response.get('Line'):
+        return {
+            'filename': formatPathForServer(ctx, ctx.buffer_name),
+            'text': '',
+            'lnum': response['Line'],
+            'col': response['Column'],
+            'vcol': 0
+        }
+    return None
 
 
 @vimcmd

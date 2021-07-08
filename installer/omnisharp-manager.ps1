@@ -57,7 +57,7 @@ Invoke-WebRequest -Uri $url -OutFile $out
 
 # Run Expand-Archive in versions that support it
 if ($PSVersionTable.PSVersion.Major -gt 4) {
-    Expand-Archive $out -DestinationPath $location -Force
+    Expand-Archive $out $location -Force
 } else {
     Add-Type -AssemblyName System.IO.Compression.FileSystem
     [System.IO.Compression.ZipFile]::ExtractToDirectory($out, $location)
@@ -65,7 +65,7 @@ if ($PSVersionTable.PSVersion.Major -gt 4) {
 
 # Check for file to confirm download and unzip were successful
 if (Test-Path -Path "$($location)\OmniSharp.Roslyn.dll") {
-    Set-Content -Path "$($location)\OmniSharpInstall-version.txt" -Value "OmniSharp $($version)"
+    Set-Content -Path "$($location)\OmniSharpInstall-version.txt" -Value "$($version)"
     exit 0
 } else {
     exit 1
